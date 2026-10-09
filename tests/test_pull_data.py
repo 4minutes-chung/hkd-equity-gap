@@ -7,10 +7,14 @@ import pandas as pd
 
 import pull_data
 
+HSI_DAYS = pd.to_datetime(["2015-01-02", "2025-04-03", "2025-04-07", "2025-05-06", "2025-05-07",
+                           "2025-05-08", "2025-06-03", "2025-08-05"])
+
 
 def make_series():
     days = pd.to_datetime(["2025-05-06", "2025-05-07", "2025-05-08", "2025-06-03"])
     return {
+        "hsi_close": pd.Series([24000, 22800, 19800, 22600, 22700, 22750, 23500, 24900], index=HSI_DAYS),
         "hibor_1m": pd.Series([0.4, 1.5, 1.4, 1.2, 0.87], index=pd.to_datetime(["2015-01-02"]).append(days)),
         "usdhkd": pd.Series([7.7495, 7.75, 7.8535], index=days[:3]),  # just past the band, inside tolerance
         "agg_balance_hkd_mn": pd.Series([44_611, 161_313, 174_100], index=days[:3]),
@@ -22,14 +26,12 @@ def results(checks):
     return {name: ok for name, ok, _ in checks}
 
 
-def test_build_panel_uses_hibor_dates_without_filling():
-    series = make_series()
-    series["hibor_1m"]["2025-06-03"] = float("nan")  # an N.A. fixing keeps its row
-    panel = pull_data.build_panel(series)
-    assert list(panel.index.strftime("%Y-%m-%d")) == [
-        "2015-01-02", "2025-05-06", "2025-05-07", "2025-05-08", "2025-06-03"]
+def test_build_panel_uses_hsi_days_without_filling():
+    panel = pull_data.build_panel(make_series())
+    assert panel.index.equals(pd.DatetimeIndex(HSI_DAYS, name="date"))
+    assert pd.isna(panel.loc["2025-08-05", "hibor_1m"])  # HSI day with no fixing keeps its row
     assert panel["sofr"].notna().sum() == 1  # no forward-fill, US-only date dropped
-    assert panel["usdhkd"].isna().sum() == 2
+    assert panel["usdhkd"].notna().sum() == 3
 
 
 def test_checks_pass():
@@ -41,7 +43,9 @@ def test_checks_pass():
 
 def test_checks_fail():
     series = make_series()
-    series["hibor_1m"] = series["hibor_1m"].drop(pd.Timestamp("2015-01-02")) + 1  # late start, no sub-1% HIBOR
+    series["hsi_close"] = series["hsi_close"].drop(pd.Timestamp("2015-01-02"))  # late start
+    series["hsi_close"]["2025-05-06"] = 10_000  # largest fall now on the wrong day
+    series["hibor_1m"] = series["hibor_1m"] + 1  # no sub-1% HIBOR
     series["usdhkd"] = pd.Series([7.86], index=pd.to_datetime(["2025-05-06"]))
     series["agg_balance_hkd_mn"] = series["agg_balance_hkd_mn"] * 2
     series["sofr"] = pd.Series([4.3, 4.3], index=pd.to_datetime(["2025-05-06", "2025-05-06"]))

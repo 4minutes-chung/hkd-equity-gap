@@ -4,11 +4,11 @@ HKMA Monthly Statistical Bulletin XLS files on www.hkma.gov.hk (the HKMA Open AP
   T060103  USD/HKD, Hang Seng Bank average closing middle rate
   T060303  1M HIBOR fixing, HONIA
   T070102  Aggregate Balance, closing
-FRED: SOFR, 4-week T-bill.
+FRED: SOFR, 1-month Treasury (constant maturity), 1-month AA financial commercial paper (USD bank borrowing rate).
+Yahoo Finance: Hang Seng Index (^HSI) daily close, a price index (no dividends).
 
 Each raw download is saved untouched to data/raw/<name>_<timestamp>.{xls,csv}.
-The panel goes to data/clean/panel.parquet, one row per 1M HIBOR fixing date
-(Hong Kong business days) until the HSI is added. No forward-filling.
+The panel goes to data/clean/panel.parquet, one row per HSI trading day. No forward-filling.
 The panel is written only if the structural checks pass; the done-when content checks are reported.
 
 Run with conda base:  python pull_data.py
@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 import xlrd
+import yfinance as yf
 
 START = "2015-01-01"
 ROOT = Path(__file__).resolve().parent
@@ -37,7 +38,7 @@ HKMA_SERIES = {
     "agg_balance_hkd_mn": ("T070102", "T7.1.2", 12, ("Closing balance",)),
 }
 USD_OLD_SHEET = "T6.1.3(old basket, 01.2010=100)"  # same USD column; covers the years before the new sheet starts
-FRED_SERIES = {"SOFR": "sofr", "DTB4WK": "tbill_4wk"}
+FRED_SERIES = {"SOFR": "sofr", "DGS1MO": "ust_1m", "DCPF1M": "cp_1m_usd"}
 # The USD/HKD series is a bank closing middle rate and sits up to 0.0035 outside 7.75 to 7.85 on 280 days.
 BAND_LO, BAND_HI, BAND_TOL = 7.75, 7.85, 0.005  # tolerance proposed 2026-10-09, pending Steven
 
@@ -115,12 +116,22 @@ def pull(stamp):
             series[col] = s[s.index >= START]
         except Exception as e:
             failed[name] = f"{type(e).__name__}: {e}"
+    try:
+        h = yf.download("^HSI", start=START, auto_adjust=False, progress=False)
+        h.columns = h.columns.get_level_values(0)  # yfinance returns (field, ticker) columns
+        urls["yahoo_hsi"] = "yfinance ^HSI"
+        h.to_csv(RAW / f"yahoo_hsi_{stamp}.csv")
+        series["hsi_close"] = h["Close"].rename("hsi_close").sort_index(kind="stable")
+        if series["hsi_close"].empty:
+            raise RuntimeError("no HSI rows")
+    except Exception as e:
+        failed["yahoo_hsi"] = f"{type(e).__name__}: {e}"
     return series, urls, failed
 
 
 def build_panel(series):
-    """Left-join every series onto the 1M HIBOR fixing dates."""
-    cal = series["hibor_1m"].index.unique().sort_values()  # every dated fixing row, even if the value is N.A.
+    """Left-join every series onto the HSI trading days."""
+    cal = series["hsi_close"].index.unique().sort_values()
     panel = pd.DataFrame(index=pd.DatetimeIndex(cal, name="date"))
     for col, s in series.items():
         panel[col] = s[~s.index.duplicated(keep="last")].reindex(panel.index)
@@ -150,6 +161,8 @@ def content_checks(panel):
     out = fx[~fx.between(BAND_LO - BAND_TOL, BAND_HI + BAND_TOL)]
     ab_before, ab_after = at("agg_balance_hkd_mn", "2025-05-06"), at("agg_balance_hkd_mn", "2025-05-08")
     hibor_low = panel.loc["2025-05-01":"2025-07-31", "hibor_1m"].min()
+    hsi_ret = panel["hsi_close"].pct_change(fill_method=None)
+    worst_day = hsi_ret.idxmin() if hsi_ret.notna().any() else pd.NaT
     return [
         (f"USD/HKD within 7.75 to 7.85, tolerance {BAND_TOL}", len(fx) > 0 and out.empty,
          f"min {fx.min():.4f}, max {fx.max():.4f}, {len(edge)} days just past the band, "
@@ -159,6 +172,8 @@ def content_checks(panel):
          40_000 <= ab_before <= 50_000 and 170_000 <= ab_after <= 180_000,
          f"{ab_before:,.0f} mn -> {ab_after:,.0f} mn"),
         ("1M HIBOR below 1% in May to July 2025", hibor_low < 1.0, f"min {hibor_low:.3f}%"),
+        ("HSI largest one-day fall on 2025-04-07 (tariff crash), so dates are not shifted",
+         worst_day == pd.Timestamp("2025-04-07"), f"largest fall on {str(worst_day)[:10]}"),
     ]
 
 
