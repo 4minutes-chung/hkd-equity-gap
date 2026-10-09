@@ -4,6 +4,7 @@ Reads data/clean/panel.parquet (built by pull_data.py) and writes
   output/fig_rolling_corr_gap.png
   output/regression_table.md and output/regression_table.csv
   output/sensitivity.md (main-gap regression re-run on alternative samples)
+  output/robustness.md (year-specific slopes, slope CIs, leave-one-year-out, block bootstrap, placebo)
 
 Variables (t = HSI trading day, t-1 = previous panel row):
   ds_t    = (USD/HKD_t - USD/HKD_{t-1}) x 10,000, in pips; positive = HKD weaker
@@ -143,6 +144,113 @@ def sensitivity(panel):
     return md + "\nMain gap (UST 1M minus HIBOR 1M). Newey-West p-values in parentheses.\n"
 
 
+def implied_slopes(res, d):
+    """Slope of ds on r at the mean band and gap p10 / p50 / p90, with Newey-West 95% CIs."""
+    names, band_mean, out = list(res.params.index), d["band_lag"].mean(), []
+    for q, g in d["gap_lag"].quantile([0.1, 0.5, 0.9]).items():
+        R = np.zeros(len(names))
+        R[names.index("r")], R[names.index("r_x_gap")], R[names.index("r_x_band")] = 1, g, band_mean
+        t = res.t_test(R)
+        lo, hi = t.conf_int()[0]
+        out.append((q, g, float(np.squeeze(t.effect)), lo, hi, float(np.squeeze(t.pvalue))))
+    return out
+
+
+def with_extra(v, kind):
+    """v plus extra regressors: per-year HSI slopes, one 2025-26 slope, or lagged HSI volatility."""
+    w, years, extra = v.copy(), v.index.year, []
+    if kind == "years":
+        for y in sorted(set(years))[1:]:  # first year is the base
+            w[f"y{y}"] = (years == y).astype(float)
+            w[f"r_x_y{y}"] = w["r"] * w[f"y{y}"]
+            extra += [f"y{y}", f"r_x_y{y}"]
+    elif kind == "2025on":
+        w["y2025on"] = (years >= 2025).astype(float)
+        w["r_x_y2025on"] = w["r"] * w["y2025on"]
+        extra = ["y2025on", "r_x_y2025on"]
+    elif kind == "vol":
+        w["vol_lag"] = w["r"].rolling(20, min_periods=15).std().shift(1)
+        w["r_x_vol"] = w["r"] * w["vol_lag"]
+        extra = ["vol_lag", "r_x_vol"]
+    return w, extra
+
+
+def block_bootstrap(d, L, reps=999, seed=0):
+    """Moving-block bootstrap of the r x gap coefficient: resample runs of L consecutive rows."""
+    rng = np.random.default_rng(seed)
+    X = np.column_stack([np.ones(len(d))] + [d[k].to_numpy() for k in TERMS])
+    y, n, k = d["ds"].to_numpy(), len(d), TERMS.index("r_x_gap") + 1
+    out = np.empty(reps)
+    for i in range(reps):
+        idx = (rng.integers(0, n - L + 1, int(np.ceil(n / L)))[:, None] + np.arange(L)).ravel()[:n]
+        out[i] = np.linalg.lstsq(X[idx], y[idx], rcond=None)[0][k]
+    return out
+
+
+def placebo_gap(d, L=250, reps=999, seed=1):
+    """r x gap coefficients with the gap shuffled in blocks of L rows (keeps its persistence, breaks its timing)."""
+    rng = np.random.default_rng(seed)
+    gap, r, band, y = (d[c].to_numpy() for c in ("gap_lag", "r", "band_lag", "ds"))
+    blocks = [np.arange(s, min(s + L, len(d))) for s in range(0, len(d), L)]
+    out = np.empty(reps)
+    for i in range(reps):
+        g = gap[np.concatenate([blocks[j] for j in rng.permutation(len(blocks))])]
+        X = np.column_stack([np.ones(len(d)), r, g, r * g, band, r * band])
+        out[i] = np.linalg.lstsq(X, y, rcond=None)[0][3]
+    return out
+
+
+def robustness(panel):
+    """Checks asked for by the council review (2026-10-09). Returns markdown text."""
+    v = build_vars(panel, "ust_1m", "hibor_1m")
+    res, d, _ = fit(v, "2015-01-01")
+    b = res.params["r_x_gap"]
+    fits = 1
+
+    def cell(r):
+        return f"{r.params['r_x_gap']:.3f} ({r.bse['r_x_gap']:.3f}, p = {r.pvalues['r_x_gap']:.3f})"
+
+    md = "## A. Is it a gap effect or a shift in the HSI slope over time?\n\n"
+    md += "| Specification | r_t x Gap_{t-1} (SE, p) | N |\n|---|---|---|\n"
+    md += f"| Baseline, column (1) | {cell(res)} | {int(res.nobs):,} |\n"
+    for label, kind in [("Adds a 2025-26 dummy and r_t x 2025-26", "2025on"),
+                        ("Adds year dummies and r_t x each year", "years"),
+                        ("Adds lagged 20-day HSI volatility and r_t x volatility", "vol")]:
+        w, extra = with_extra(v, kind)
+        r2, _, _ = fit(w, "2015-01-01", END, TERMS + extra)
+        fits += 1
+        md += f"| {label} | {cell(r2)} | {int(r2.nobs):,} |\n"
+
+    md += "\n## B. Implied slope of ds on r (pips per 1% HSI), mean band, 95% Newey-West CI\n\n"
+    md += "| Gap percentile | Gap (pp) | Slope | 95% CI | p (slope = 0) |\n|---|---|---|---|---|\n"
+    for q, g, s, lo, hi, p in implied_slopes(res, d):
+        md += f"| p{int(q * 100)} | {g:.2f} | {s:.3f} | {lo:.3f} to {hi:.3f} | {p:.3f} |\n"
+
+    md += "\n## C. Leave one year out\n\n| Year dropped | r_t x Gap_{t-1} (SE, p) | N |\n|---|---|---|\n"
+    for y in sorted(set(d.index.year)):
+        r2, _, _ = fit(blank(v, v.index[v.index.year == y]), "2015-01-01")
+        fits += 1
+        md += f"| {y} | {cell(r2)} | {int(r2.nobs):,} |\n"
+
+    md += "\n## D. Block bootstrap of r_t x Gap_{t-1} (999 draws)\n\n"
+    md += "| Block length (trading days) | Bootstrap SE | 95% percentile CI | Share of draws at or below 0 |\n|---|---|---|---|\n"
+    for L in (60, 250):
+        bs = block_bootstrap(d, L)
+        lo, hi = np.percentile(bs, [2.5, 97.5])
+        md += f"| {L} | {bs.std(ddof=1):.3f} | {lo:.3f} to {hi:.3f} | {(bs <= 0).mean():.3f} |\n"
+
+    pl = placebo_gap(d)
+    lo, hi = np.percentile(pl, [2.5, 97.5])
+    md += ("\n## E. Placebo: gap shuffled in 250-day blocks (999 draws)\n\n"
+           f"Actual r_t x Gap_{{t-1}} = {b:.3f}. Placebo 95% range {lo:.3f} to {hi:.3f}. "
+           f"Share of placebo draws at least as large in absolute value: {(np.abs(pl) >= abs(b)).mean():.3f}.\n")
+    md += (f"\n## F. Specification count\n\nPoint estimates of r_t x Gap_{{t-1}} reported across the project: "
+           f"4 (main table) + 7 (sensitivity) + {fits} (this file) = {4 + 7 + fits}, "
+           "plus 2 x 999 bootstrap and 999 placebo draws. The four gap definitions are highly correlated, "
+           "so they are not four independent tests.\n")
+    return md
+
+
 def rolling_corr(panel):
     """60-day rolling corr(r, ds) on rows where both exist, and the main gap, both up to END."""
     v = build_vars(panel, "ust_1m", "hibor_1m").loc[:END]
@@ -183,14 +291,17 @@ def main():
     long.to_csv(OUT / "regression_table.csv", index=False)
     sens = sensitivity(panel)
     (OUT / "sensitivity.md").write_text(sens)
+    rob = robustness(panel)
+    (OUT / "robustness.md").write_text(rob)
     rc, g = rolling_corr(panel)
     plot(rc, g, OUT / "fig_rolling_corr_gap.png")
     print(md)
     print(sens)
+    print(rob)
     print(f"Rolling corr: {rc.notna().sum()} days, mean {rc.mean():.3f}, min {rc.min():.3f}, max {rc.max():.3f}; "
           f"corr(rolling corr, gap) = {rc.corr(g.reindex(rc.index)):.3f}")
     print("Wrote output/regression_table.md, output/regression_table.csv, output/sensitivity.md, "
-          "output/fig_rolling_corr_gap.png")
+          "output/robustness.md, output/fig_rolling_corr_gap.png")
 
 
 if __name__ == "__main__":

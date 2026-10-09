@@ -62,3 +62,31 @@ def test_fit_recovers_known_coefficients():
         meat += (1 - lag / (lags + 1)) * (g + g.T)
     bread = np.linalg.inv(X.T @ X)
     assert np.allclose(res.bse.to_numpy(), np.sqrt(np.diag(bread @ meat @ bread)))
+
+
+def synthetic(n=1500, seed=0):
+    rng = np.random.default_rng(seed)
+    v = pd.DataFrame({"r": rng.normal(0, 1, n), "gap_lag": np.cumsum(rng.normal(0, 0.05, n)),
+                      "band_lag": rng.uniform(0, 1, n)}, index=pd.date_range("2015-01-01", periods=n, freq="B"))
+    v["r_x_gap"], v["r_x_band"] = v["r"] * v["gap_lag"], v["r"] * v["band_lag"]
+    v["ds"] = -3 * v["r"] + 2 * v["r_x_gap"] + rng.normal(0, 1, n)
+    return v
+
+
+def test_implied_slopes_match_manual_delta_method():
+    res, d, _ = analysis.fit(synthetic(), "2015-01-01", None)
+    names, V = list(res.params.index), res.cov_params().to_numpy()
+    for q, g, s, lo, hi, p in analysis.implied_slopes(res, d):
+        R = np.zeros(len(names))
+        R[names.index("r")], R[names.index("r_x_gap")], R[names.index("r_x_band")] = 1, g, d["band_lag"].mean()
+        assert s == pytest.approx(R @ res.params.to_numpy())
+        assert (hi - lo) / 2 == pytest.approx(1.959964 * np.sqrt(R @ V @ R), rel=1e-4)
+
+
+def test_bootstrap_and_placebo_are_reproducible_and_centred():
+    d = synthetic().dropna()
+    bs = analysis.block_bootstrap(d, 60, reps=200)
+    assert np.array_equal(bs, analysis.block_bootstrap(d, 60, reps=200))  # fixed seed
+    assert abs(np.median(bs) - 2) < 0.3  # centred near the true r x gap coefficient
+    pl = analysis.placebo_gap(d, L=100, reps=200)
+    assert abs(np.median(pl)) < 0.5  # shuffled gap has no effect
