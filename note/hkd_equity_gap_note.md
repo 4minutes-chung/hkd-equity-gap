@@ -50,6 +50,8 @@ Column (4) uses the commercial-paper rate, which FRED publishes on fewer than ha
 
 The obvious mechanical explanation does not fit. A wide gap tends to push USD/HKD toward 7.85, where HKMA stops it rising further, which could mute any link. But dropping the 942 days after USD/HKD sat within 50 pips of either edge makes the interaction larger (+5.5, p = 0.005), not smaller, and the band interaction is not significant. A reading consistent with the data, though not tested here, is that wide gaps bring carry positioning that offsets equity-driven HKD demand. HKMA's then Chief Executive described this channel in words in 2010: carry trades "countered the demand for Hong Kong dollars triggered by equity-related fund inflows" (Chan, 2010).
 
+\newpage
+
 # 4. Robustness
 
 **Table 2. Interaction $r_t \times g_{t-1}$ under alternative checks (column 1 gap).**

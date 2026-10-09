@@ -90,3 +90,13 @@ def test_bootstrap_and_placebo_are_reproducible_and_centred():
     assert abs(np.median(bs) - 2) < 0.3  # centred near the true r x gap coefficient
     pl = analysis.placebo_gap(d, L=100, reps=200)
     assert abs(np.median(pl)) < 0.5  # shuffled gap has no effect
+
+
+def test_year_dummies_full_rank_when_panel_starts_before_sample():
+    v = synthetic()
+    v.index = pd.date_range("2014-06-02", periods=len(v), freq="B")  # rows before the 2015 sample start
+    w, extra = analysis.with_extra(v, "years", start="2015-01-01", end=None)
+    assert "y2014" not in extra and "y2015" not in extra  # 2015 is the base, 2014 is out of sample
+    _, d, _ = analysis.fit(w, "2015-01-01", None, analysis.TERMS + extra)
+    X = np.column_stack([np.ones(len(d))] + [d[k] for k in analysis.TERMS + extra])
+    assert np.linalg.matrix_rank(X) == X.shape[1]

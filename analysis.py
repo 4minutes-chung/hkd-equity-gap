@@ -156,11 +156,12 @@ def implied_slopes(res, d):
     return out
 
 
-def with_extra(v, kind):
+def with_extra(v, kind, start="2015-01-01", end=END):
     """v plus extra regressors: per-year HSI slopes, one 2025-26 slope, or lagged HSI volatility."""
     w, years, extra = v.copy(), v.index.year, []
     if kind == "years":
-        for y in sorted(set(years))[1:]:  # first year is the base
+        in_sample = v.loc[start:end, ["ds"] + TERMS].dropna().index.year  # years fit() will actually use
+        for y in sorted(set(in_sample))[1:]:  # first in-sample year is the base, so dummies never span the constant
             w[f"y{y}"] = (years == y).astype(float)
             w[f"r_x_y{y}"] = w["r"] * w[f"y{y}"]
             extra += [f"y{y}", f"r_x_y{y}"]
