@@ -45,10 +45,20 @@ def test_fit_recovers_known_coefficients():
     v["r_x_gap"], v["r_x_band"] = v["r"] * v["gap_lag"], v["r"] * v["band_lag"]
     beta = {"r": -3.0, "gap_lag": 0.5, "r_x_gap": -1.0, "band_lag": 2.0, "r_x_band": 1.5}
     v["ds"] = 0.2 + sum(b * v[k] for k, b in beta.items()) + rng.normal(0, 0.5, n)
+    v.iloc[1000:1500] = np.nan  # a 500-day hole: lags and HAC must still count calendar days
     res, d, lags = analysis.fit(v, "2015-01-01", None)
-    X = np.column_stack([np.ones(len(d))] + [d[k] for k in analysis.TERMS])
-    ols = np.linalg.lstsq(X, d["ds"].to_numpy(), rcond=None)[0]
-    assert np.allclose(res.params.to_numpy(), ols)  # same point estimates as plain least squares
+    assert len(d) == n - 500
+    assert lags == int(np.floor(4 * (n / 100) ** (2 / 9)))  # from the calendar span, not len(d)
     for k, b in beta.items():
         assert res.params[k] == pytest.approx(b, abs=0.1)
-    assert lags == int(np.floor(4 * (n / 100) ** (2 / 9)))
+    # benchmark: hand-built Newey-West with the hole kept as zero rows
+    X = np.column_stack([np.ones(len(d))] + [d[k] for k in analysis.TERMS])
+    u = d["ds"].to_numpy() - X @ res.params.to_numpy()
+    S = np.zeros((n, X.shape[1]))
+    S[v.index.get_indexer(d.index)] = X * u[:, None]
+    meat = S.T @ S
+    for lag in range(1, lags + 1):
+        g = S[lag:].T @ S[:-lag]
+        meat += (1 - lag / (lags + 1)) * (g + g.T)
+    bread = np.linalg.inv(X.T @ X)
+    assert np.allclose(res.bse.to_numpy(), np.sqrt(np.diag(bread @ meat @ bread)))

@@ -10,7 +10,8 @@ Variables (t = HSI trading day, t-1 = previous panel row):
   r_t     = 100 x ln(HSI_t / HSI_{t-1}), in percent
   gap_t   = USD rate - HK rate, in percentage points; positive = USD rate above HIBOR
   band_t  = (USD/HKD_t - 7.75) / 0.10; 0 = strong side, 1 = weak side (not clipped)
-Regression: ds_t on r_t, gap_{t-1}, r_t x gap_{t-1}, band_{t-1}, r_t x band_{t-1}, Newey-West SEs.
+Regression: ds_t on r_t, gap_{t-1}, r_t x gap_{t-1}, band_{t-1}, r_t x band_{t-1}, Newey-West SEs with lags
+counted in trading days, so rows dropped for missing data leave gaps instead of becoming neighbours.
 US rates are carried forward at most US_FILL rows onto HK days (US holidays); the panel itself stays unfilled.
 Results are associations, not causal effects.
 
@@ -64,10 +65,15 @@ def build_vars(panel, usd_col, hk_col):
 
 
 def fit(v, start, end=END, terms=TERMS):
-    """OLS with Newey-West SEs; lag length from the 4(T/100)^(2/9) rule. Returns (result, data used, lags)."""
+    """OLS with Newey-West SEs on the trading-day calendar of v (hac-groupsum with each row's position as its
+    time label, no small-sample correction: identical to plain HAC when no rows are missing). Lag length from
+    the 4(T/100)^(2/9) rule, T = calendar days spanned. Returns (result, data used, lags)."""
     d = v.loc[start:end, ["ds"] + terms].dropna()
-    lags = int(np.floor(4 * (len(d) / 100) ** (2 / 9)))
-    res = sm.OLS(d["ds"], sm.add_constant(d[terms])).fit(cov_type="HAC", cov_kwds={"maxlags": lags})
+    pos = v.index.get_indexer(d.index)
+    pos = pos - pos.min()
+    lags = int(np.floor(4 * ((pos.max() + 1) / 100) ** (2 / 9)))
+    res = sm.OLS(d["ds"], sm.add_constant(d[terms])).fit(
+        cov_type="hac-groupsum", cov_kwds={"time": pos, "maxlags": lags, "use_correction": False})
     return res, d, lags
 
 
@@ -104,18 +110,26 @@ def regression_table(panel):
     return md, pd.DataFrame(rows)
 
 
+def blank(v, rows):
+    """Copy of v with the given rows set to NaN (kept on the calendar, so lags still count trading days)."""
+    out = v.copy()
+    out.loc[rows] = np.nan
+    return out
+
+
 def sensitivity(panel):
-    """Column (1) re-run on alternative samples. Returns markdown text."""
+    """Column (1) re-run on alternative samples. Dropped days are blanked, not deleted, so the
+    Newey-West lags still count trading days. Returns markdown text."""
     v = build_vars(panel, "ust_1m", "hibor_1m")
     w = v.copy()
-    lo, hi = w["r"].quantile([0.01, 0.99])
+    lo, hi = v.loc[:END, ["ds"] + TERMS].dropna()["r"].quantile([0.01, 0.99])  # cut-offs from the regression sample
     w["r"] = w["r"].clip(lo, hi)
     w["r_x_gap"], w["r_x_band"] = w["r"] * w["gap_lag"], w["r"] * w["band_lag"]
     runs = [
         ("Baseline, column (1)", v, END, TERMS),
         ("Ends 2024-12-31 (drops 2025 to 2026)", v, "2024-12-31", TERMS),
-        ("Drops 2025-05-01 to 2025-08-31 (largest gap spike)", v.drop(v.loc["2025-05-01":"2025-08-31"].index), END, TERMS),
-        ("Drops days with HSI move above 5%", v[v["r"].abs() <= 5], END, TERMS),
+        ("Drops 2025-05-01 to 2025-08-31 (largest gap spike)", blank(v, v.loc["2025-05-01":"2025-08-31"].index), END, TERMS),
+        ("Drops days with HSI move above 5%", blank(v, v.index[v["r"].abs() > 5]), END, TERMS),
         ("HSI return capped at its 1st and 99th percentiles", w, END, TERMS),
         ("Without the band terms", v, END, ["r", "gap_lag", "r_x_gap"]),
     ]

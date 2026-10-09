@@ -14,24 +14,31 @@ Does the co-movement between Hong Kong equity returns and USD/HKD get stronger w
 
 ## Status (2026-10-09)
 
-- `data/clean/panel.parquet` built: 2,887 rows, 2015-01-02 to 2026-09-30, one row per 1M HIBOR fixing date.
-- Checks: no duplicate dates PASS; no empty series PASS; panel starts 2015-01-02 PASS; Aggregate Balance 44,611mn (2025-05-06) to 174,100mn (2025-05-08) PASS; 1M HIBOR min 0.525% in May to July 2025 PASS; USD/HKD within 7.75 to 7.85 with 0.005 tolerance PASS (280 days sit just past the band, by at most 0.0035; see Decisions).
-- HSI not pulled yet. Gap definition not decided.
-- Next: Bloomberg session Mon 2026-10-12. Export daily from 2015 as CSV into `data/raw`: 1M USD LIBOR (to its end date), 1M Term SOFR, HSI close. That settles gap option (b) and the HSI trading calendar.
+Done with free data. Bloomberg (1M LIBOR / Term SOFR) is an optional fifth gap column.
+
+- Panel: `data/clean/panel.parquet`, 2,896 HSI trading days, 2015-01-02 to 2026-10-09 (usable to 2026-09-30, where the HKMA files end). All 7 data checks pass.
+- Chart: `output/fig_rolling_corr_gap.png`. Regression table: `output/regression_table.md` (and `.csv`). Sensitivity checks: `output/sensitivity.md`.
+
+## Result
+
+**In this data the stock/FX link gets weaker, not stronger, when the USD rate sits far above HIBOR.** At the average band position, a 1% HSI rise goes with USD/HKD 4.9 pips lower (HKD stronger) when the gap is at its 10th percentile (-0.23 pp), 3.0 pips lower at the median (0.25 pp) and 0.9 pips higher at the 90th percentile (1.22 pp). The r x gap coefficient is +4.0 (p = 0.003) and positive in all four gap definitions. It survives dropping the May to August 2025 gap spike, dropping days with HSI moves above 5%, and capping returns; it drops to +2.0 (p = 0.17) if 2025 and 2026 are left out. Associations, not causal effects. Gap and band position move together (correlation about 0.55).
 
 ## Data
 
 | Panel column | Source | File / series | Rows in panel | Note |
 |---|---|---|---|---|
-| `usdhkd` | HKMA Monthly Statistical Bulletin | `T060103.xls`, col "U.S. dollar" | 2,887 | Hang Seng Bank average closing middle rate, HKD per USD |
+| `hsi_close` | Yahoo Finance | `^HSI` close | 2,896 | price index, no dividends; sets the calendar |
+| `usdhkd` | HKMA Monthly Statistical Bulletin | `T060103.xls`, col "U.S. dollar" | 2,888 | Hang Seng Bank average closing middle rate, HKD per USD |
 | `hibor_1m` | HKMA MSB | `T060303.xls`, sheet "T6.3.3 (HIBOR Fixing)", col "1-month" | 2,887 | HKAB fixing, 11:15 am |
 | `honia` | HKMA MSB | `T060303.xls`, sheet "T6.3.3 (HONIA)" | 2,578 | starts 2016-04-05 |
-| `agg_balance_hkd_mn` | HKMA MSB | `T070102.xls`, col "Closing balance" | 2,887 | HK$ million |
-| `sofr` | FRED | `SOFR` | 2,018 | starts 2018-04-03; US dates only |
-| `tbill_4wk` | FRED | `DTB4WK` | 2,795 | US dates only |
+| `agg_balance_hkd_mn` | HKMA MSB | `T070102.xls`, col "Closing balance" | 2,890 | HK$ million |
+| `ust_1m` | FRED | `DGS1MO` | 2,802 | 1-month Treasury, constant maturity; US dates only |
+| `sofr` | FRED | `SOFR` | 2,025 | starts 2018-04-03; US dates only |
+| `cp_1m_usd` | FRED | `DCPF1M` | 1,571 | 1-month AA financial commercial paper; missing about 70% of days from 2021 |
 
 - File base URL: `https://www.hkma.gov.hk/media/eng/doc/market-data-and-statistics/monthly-statistical-bulletin/`.
-- Series are left-joined onto HIBOR fixing dates with no forward-fill. This drops 577 USD/HKD rows (mostly Saturdays) and 12 Aggregate Balance dates with no fixing.
+- Series are left-joined onto HSI trading days with no forward-fill. HSI has 3 days with no HIBOR fixing (2025-08-05, 2025-09-08, 2025-09-24, likely severe-weather days).
+- HSI date check: its largest one-day fall is on 2025-04-07 (-14.2% log), so dates are not shifted.
 - HKMA files end at the last month-end and refresh monthly (last modified 2026-10-02 to 10-06).
 - Sanity values confirmed on HKMA's daily monetary statistics pages: closing Aggregate Balance HK$44,611mn (2025-05-06), HK$161,313mn (2025-05-07), HK$174,100mn (2025-05-08); 1M HIBOR fixing 0.87423% (2025-06-03). The XLS files match all four.
 
@@ -99,9 +106,9 @@ Notes for Steven (not actions):
 | 2026-10-09 | HKMA data from the Monthly Statistical Bulletin XLS files, not the Open API the plan named. The API returns HTTP 405 from this network; the files are the same official series and match HKMA's daily pages | proposed |
 | 2026-10-09 | Aggregate Balance from T070102 "Closing balance", not T070202 (which differs on discount-window days, per a 34-date check against daily pages) | proposed |
 | 2026-10-09 | USD/HKD: old-basket sheet before 2020-01-02, new-basket sheet from then on; the script asserts they agree on the overlap | proposed |
-| 2026-10-09 | Gap definition open. (a) HONIA minus SOFR, from 2018. (b) 1M HIBOR minus 1M LIBOR, switching to 1M Term SOFR, from 2015, needs Bloomberg. (c) 1M HIBOR minus 4-week T-bill, from 2015, free. Recommended: (b) main, (a) robustness | open |
+| 2026-10-09 | Main gap = 1-month US Treasury rate (FRED DGS1MO) minus 1M HIBOR, positive when the USD rate is above HIBOR. Why: free and complete daily from 2015; the bank commercial-paper rate (DCPF1M) is missing about 70% of days from 2021. Robustness: same gap from 2018-04, SOFR minus HONIA, commercial paper on the days it exists; Bloomberg LIBOR/Term SOFR later | proposed |
 | 2026-10-09 | Pulls start 2015-01-01; effective sample start follows the gap choice | proposed |
-| 2026-10-09 | Calendar = 1M HIBOR fixing dates until the HSI is added, then HSI trading dates | proposed |
+| 2026-10-09 | Calendar = HSI trading days (Yahoo ^HSI). US rates carried forward at most 3 days onto HK days in the analysis only; gap and band enter at t-1 (US rates for a date are set after the HK close) | proposed |
 | 2026-10-09 | Band check tolerance 0.005: the USD/HKD data check accepts 7.745 to 7.855. Why: the series is a bank closing middle rate, and 280 of 2,887 days sit just past 7.75 or 7.85 (2015: 7.7495; 2018, 2019, 2022, 2023, 2025: 7.8505 to 7.8535). Raw values are not changed. How close to 7.75/7.85 counts as "at the edge" for the band-position variable is still open | proposed |
 | 2026-10-09 | The panel write is blocked only by structural checks (duplicates, empty series); the done-when content checks are reported but don't block | proposed |
 
@@ -113,5 +120,6 @@ Raw pulls go in `data/raw` and are never edited by hand.
 
 ```
 python pull_data.py
+python analysis.py
 python -m pytest -q
 ```
