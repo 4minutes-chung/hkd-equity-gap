@@ -244,11 +244,49 @@ def robustness(panel):
     md += ("\n## E. Placebo: gap shuffled in 250-day blocks (999 draws)\n\n"
            f"Actual r_t x Gap_{{t-1}} = {b:.3f}. Placebo 95% range {lo:.3f} to {hi:.3f}. "
            f"Share of placebo draws at least as large in absolute value: {(np.abs(pl) >= abs(b)).mean():.3f}.\n")
-    md += (f"\n## F. Specification count\n\nPoint estimates of r_t x Gap_{{t-1}} reported across the project: "
+    md += "\n## F. Subperiods\n\n| Period | r_t x Gap_{t-1} (SE, p) | N |\n|---|---|---|\n"
+    for start, end in [("2015-01-01", "2019-12-31"), ("2020-01-01", "2024-12-31"), ("2025-01-01", END)]:
+        r2, _, _ = fit(v, start, end)
+        fits += 1
+        md += f"| {start[:4]} to {end[:4]} | {cell(r2)} | {int(r2.nobs):,} |\n"
+    md += (f"\n## G. Specification count\n\nPoint estimates of r_t x Gap_{{t-1}} reported across the project: "
            f"4 (main table) + 7 (sensitivity) + {fits} (this file) = {4 + 7 + fits}, "
            "plus 2 x 999 bootstrap and 999 placebo draws. The four gap definitions are highly correlated, "
            "so they are not four independent tests.\n")
     return md
+
+
+def plot_slope(panel, path):
+    """Implied pips per 1% HSI rise against the lagged gap (mean band), with the 95% Newey-West band."""
+    res, d, _ = fit(build_vars(panel, "ust_1m", "hibor_1m"), "2015-01-01")
+    names, V = list(res.params.index), res.cov_params().to_numpy()
+    grid = np.linspace(*d["gap_lag"].quantile([0.05, 0.95]), 100)
+    R = np.zeros((len(grid), len(names)))
+    R[:, names.index("r")], R[:, names.index("r_x_gap")] = 1, grid
+    R[:, names.index("r_x_band")] = d["band_lag"].mean()
+    s, se = R @ res.params.to_numpy(), np.sqrt(np.einsum("ij,jk,ik->i", R, V, R))
+    fig, ax = plt.subplots(figsize=(8, 4.5), facecolor=SURFACE)
+    ax.set_facecolor(SURFACE)
+    ax.fill_between(grid, s - 1.96 * se, s + 1.96 * se, color="#b7d3f6", linewidth=0)
+    ax.plot(grid, s, color=BLUE, linewidth=2)
+    ax.axhline(0, color=MUTED, linewidth=0.8)
+    for q, g, sl, lo, hi, _ in implied_slopes(res, d):
+        ax.plot(g, sl, "o", color=BLUE, markersize=7, markeredgecolor=SURFACE, markeredgewidth=2)
+        ax.annotate(f"p{int(q * 100)}: {sl:+.1f}", (g, sl), textcoords="offset points", xytext=(6, -14),
+                    fontsize=9, color=INK)
+    ax.set_title("USD/HKD move per 1% HSI rise, by the previous day's rate gap", loc="left", fontsize=11, color=INK)
+    ax.set_xlabel("Gap: 1M US Treasury minus 1M HIBOR (percentage points)", fontsize=9, color=MUTED)
+    ax.set_ylabel("Pips per 1% HSI rise", fontsize=9, color=MUTED)
+    ax.grid(axis="y", color=GRID, linewidth=0.6)
+    ax.tick_params(colors=MUTED, labelsize=9)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    fig.text(0.01, -0.02, "Below zero: HSI up goes with HKD stronger. Shaded: 95% Newey-West band, band position at its "
+             "mean, gap from its 5th to 95th percentile. Daily, 2015-01 to 2026-09.", fontsize=8, color=MUTED)
+    fig.savefig(path, dpi=200, bbox_inches="tight", facecolor=SURFACE)
+    plt.close(fig)
 
 
 def rolling_corr(panel):
@@ -295,13 +333,14 @@ def main():
     (OUT / "robustness.md").write_text(rob)
     rc, g = rolling_corr(panel)
     plot(rc, g, OUT / "fig_rolling_corr_gap.png")
+    plot_slope(panel, OUT / "fig_slope_by_gap.png")
     print(md)
     print(sens)
     print(rob)
     print(f"Rolling corr: {rc.notna().sum()} days, mean {rc.mean():.3f}, min {rc.min():.3f}, max {rc.max():.3f}; "
           f"corr(rolling corr, gap) = {rc.corr(g.reindex(rc.index)):.3f}")
     print("Wrote output/regression_table.md, output/regression_table.csv, output/sensitivity.md, "
-          "output/robustness.md, output/fig_rolling_corr_gap.png")
+          "output/robustness.md, output/fig_rolling_corr_gap.png, output/fig_slope_by_gap.png")
 
 
 if __name__ == "__main__":

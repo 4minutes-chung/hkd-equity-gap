@@ -23,6 +23,10 @@ Done with free data. Bloomberg (1M LIBOR / Term SOFR) is an optional fifth gap c
 
 **In this data the stock/FX link gets weaker, not stronger, when the USD rate sits far above HIBOR.** At the average band position, a 1% HSI rise goes with USD/HKD 4.9 pips lower (HKD stronger) when the gap is at its 10th percentile (-0.23 pp), 3.0 pips lower at the median (0.25 pp) and 0.9 pips higher at the 90th percentile (1.22 pp). The r x gap coefficient is +4.0 (p = 0.003) and positive in all four gap definitions. It survives dropping the May to August 2025 gap spike, dropping days with HSI moves above 5%, and capping returns; it drops to +2.0 (p = 0.17) if 2025 and 2026 are left out. It is not just USD/HKD being pinned at the edges: dropping the 942 days after USD/HKD sat within 50 pips of 7.75 or 7.85 makes it larger, +5.5 (p = 0.005). Associations, not causal effects. Gap and band position move together (correlation about 0.55).
 
+Council checks (`output/robustness.md`): with a separate HSI slope for every year the interaction stays at +4.0 (p = 0.017); it survives a volatility control, all 12 leave-one-year-out runs, a block bootstrap (95% CI 1.0 to 6.8) and a placebo with the gap shuffled in year-long blocks (p = 0.005). At a high gap the slope is +0.9 with 95% CI -1.9 to 3.7, so the link fades rather than flips. By subperiod: +8.4 (2015-19), +0.8 and not significant (2020-24), +7.1 (2025-26). 30 point estimates of the key coefficient were computed in total.
+
+Write-up: `note/hkd_equity_gap_note.pdf` (3 pages, built from `note/hkd_equity_gap_note.md` with `pandoc note/hkd_equity_gap_note.md -o note/hkd_equity_gap_note.pdf --pdf-engine=xelatex`).
+
 ## Data
 
 | Panel column | Source | File / series | Rows in panel | Note |

@@ -43,6 +43,14 @@
 
 Actual r_t x Gap_{t-1} = 4.021. Placebo 95% range -2.496 to 2.949. Share of placebo draws at least as large in absolute value: 0.005.
 
-## F. Specification count
+## F. Subperiods
 
-Point estimates of r_t x Gap_{t-1} reported across the project: 4 (main table) + 7 (sensitivity) + 16 (this file) = 27, plus 2 x 999 bootstrap and 999 placebo draws. The four gap definitions are highly correlated, so they are not four independent tests.
+| Period | r_t x Gap_{t-1} (SE, p) | N |
+|---|---|---|
+| 2015 to 2019 | 8.415 (3.269, p = 0.010) | 1,229 |
+| 2020 to 2024 | 0.793 (1.502, p = 0.598) | 1,230 |
+| 2025 to 2026 | 7.123 (3.015, p = 0.018) | 425 |
+
+## G. Specification count
+
+Point estimates of r_t x Gap_{t-1} reported across the project: 4 (main table) + 7 (sensitivity) + 19 (this file) = 30, plus 2 x 999 bootstrap and 999 placebo draws. The four gap definitions are highly correlated, so they are not four independent tests.
