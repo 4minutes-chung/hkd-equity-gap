@@ -21,7 +21,7 @@ Done with free data. Bloomberg (1M LIBOR / Term SOFR) is an optional fifth gap c
 
 ## Result
 
-**In this data the stock/FX link gets weaker, not stronger, when the USD rate sits far above HIBOR.** At the average band position, a 1% HSI rise goes with USD/HKD 4.9 pips lower (HKD stronger) when the gap is at its 10th percentile (-0.23 pp), 3.0 pips lower at the median (0.25 pp) and 0.9 pips higher at the 90th percentile (1.22 pp). The r x gap coefficient is +4.0 (p = 0.003) and positive in all four gap definitions. It survives dropping the May to August 2025 gap spike, dropping days with HSI moves above 5%, and capping returns; it drops to +2.0 (p = 0.17) if 2025 and 2026 are left out. Associations, not causal effects. Gap and band position move together (correlation about 0.55).
+**In this data the stock/FX link gets weaker, not stronger, when the USD rate sits far above HIBOR.** At the average band position, a 1% HSI rise goes with USD/HKD 4.9 pips lower (HKD stronger) when the gap is at its 10th percentile (-0.23 pp), 3.0 pips lower at the median (0.25 pp) and 0.9 pips higher at the 90th percentile (1.22 pp). The r x gap coefficient is +4.0 (p = 0.003) and positive in all four gap definitions. It survives dropping the May to August 2025 gap spike, dropping days with HSI moves above 5%, and capping returns; it drops to +2.0 (p = 0.17) if 2025 and 2026 are left out. It is not just USD/HKD being pinned at the edges: dropping the 942 days after USD/HKD sat within 50 pips of 7.75 or 7.85 makes it larger, +5.5 (p = 0.005). Associations, not causal effects. Gap and band position move together (correlation about 0.55).
 
 ## Data
 
@@ -108,6 +108,7 @@ Notes for Steven (not actions):
 | 2026-10-09 | USD/HKD: old-basket sheet before 2020-01-02, new-basket sheet from then on; the script asserts they agree on the overlap | proposed |
 | 2026-10-09 | Main gap = 1-month US Treasury rate (FRED DGS1MO) minus 1M HIBOR, positive when the USD rate is above HIBOR. Why: free and complete daily from 2015; the bank commercial-paper rate (DCPF1M) is missing about 70% of days from 2021. Robustness: same gap from 2018-04, SOFR minus HONIA, commercial paper on the days it exists; Bloomberg LIBOR/Term SOFR later | proposed |
 | 2026-10-09 | Pulls start 2015-01-01; effective sample start follows the gap choice | proposed |
+| 2026-10-09 | HSI from Yahoo Finance (^HSI close), a price index without dividends; Bloomberg HSI or MSCI Hong Kong optional as a check | proposed |
 | 2026-10-09 | Calendar = HSI trading days (Yahoo ^HSI). US rates carried forward at most 3 days onto HK days in the analysis only; gap and band enter at t-1 (US rates for a date are set after the HK close) | proposed |
 | 2026-10-09 | Band check tolerance 0.005: the USD/HKD data check accepts 7.745 to 7.855. Why: the series is a bank closing middle rate, and 280 of 2,887 days sit just past 7.75 or 7.85 (2015: 7.7495; 2018, 2019, 2022, 2023, 2025: 7.8505 to 7.8535). Raw values are not changed. How close to 7.75/7.85 counts as "at the edge" for the band-position variable is still open | proposed |
 | 2026-10-09 | The panel write is blocked only by structural checks (duplicates, empty series); the done-when content checks are reported but don't block | proposed |

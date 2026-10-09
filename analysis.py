@@ -132,6 +132,8 @@ def sensitivity(panel):
         ("Drops days with HSI move above 5%", blank(v, v.index[v["r"].abs() > 5]), END, TERMS),
         ("HSI return capped at its 1st and 99th percentiles", w, END, TERMS),
         ("Without the band terms", v, END, ["r", "gap_lag", "r_x_gap"]),
+        ("Drops days after USD/HKD within 50 pips of 7.75 or 7.85 (Band_{t-1} below 0.05 or above 0.95)",
+         blank(v, v.index[(v["band_lag"] < 0.05) | (v["band_lag"] > 0.95)]), END, TERMS),
     ]
     md = "| Sample | N | r_t (p) | r_t x Gap_{t-1} (p) | r_t x Band_{t-1} (p) |\n|---|---|---|---|---|\n"
     for name, data, end, terms in runs:
