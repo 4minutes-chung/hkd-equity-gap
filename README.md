@@ -37,9 +37,9 @@ Does the co-movement between Hong Kong equity returns and USD/HKD get stronger w
 
 ## Prior work
 
-Searched 2026-10-09 by three Claude subagents using web search, IDEAS/RePEc, OpenAlex, Semantic Scholar and CitEc (keyword queries, plus citation trails of the three anchors and of Lo, Hui, Fong and Chu 2015). The "opened?" column is the subagents' report. I confirmed only that the three anchors exist, that the AMRO annex PDF exists, and the Yiu et al. abstract. **Not run yet: Google Scholar, CNKI, Airiti** (need a login or manual access). SSRN abstract pages returned 403, so SSRN items are from listings only. A "no" on a line marked "not opened" is a guess from the title or excerpt.
+Searched 2026-10-09 by three Claude subagents using web search, IDEAS/RePEc, OpenAlex, Semantic Scholar and CitEc (keyword queries, plus citation trails of the three anchors and of Lo, Hui, Fong and Chu 2015). The "opened?" column is the subagents' report. I confirmed only that the three anchors exist, that the AMRO annex PDF exists, and the Yiu et al. abstract. Google Scholar and CNKI were then searched in a browser the same day (see Manual search below); **Airiti not reachable from this network**. SSRN abstract pages returned 403, so SSRN items are from listings only. A "no" on a line marked "not opened" is a guess from the title or excerpt.
 
-**Stop rule: no "yes" hit so far.** The angle stands, pending the three searches not yet run.
+**Stop rule: no "yes" hit.** The angle stands. Only Airiti is left unsearched.
 
 Format: title | authors | year | link | opened? | equity x gap
 
@@ -69,6 +69,18 @@ Checked, no:
 - Fast Interface for New Issuance and the Hong Kong Dollar Interbank Market during IPOs (SSRN 7446763) | Cheung, Luk, Yip | 2026 | https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7446763 | not opened | no (listing only): IPO to HIBOR
 - Interest Rate Differentials Under an Exchange Rate Convertibility Zone (SSRN 4548132) | Fung, Lam | not confirmed | https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4548132 | not opened | no (listing only)
 - Linked Exchange Rate System Operations: Mechanism and Theory (HKMA RM 11/2018) | HKMA | 2018 | https://www.hkma.gov.hk/media/eng/publication-and-research/research/research-memorandums/2018/RM11-2018.pdf | not opened | no (excerpt only)
+
+Manual search, 2026-10-09 (browser, no login):
+
+- Google Scholar, from 2015, first 2 result pages each: `"Hong Kong dollar" "stock market" "interest rate differential"`; `"Hong Kong dollar" Southbound "exchange rate"`; `"Hang Seng" "USD/HKD" correlation`; plus page 1 of `"Hong Kong dollar" "carry trade" equity`. No "yes". Checked further:
+  - The Credibility of Hong Kong's Currency Board System: Looking Through the Prism of MS-VAR Models with Time-Varying Transition Probabilities (Oxford Bull. Econ. Stat. 78(6)) | Blagov, Funke | 2016 | https://www.econstor.eu/handle/10419/212801 | full text (BOFIT DP 15/2014, searched for equity terms) | no: Hang Seng volatility drives credibility regime switches; no equity return x gap
+  - Funding Stress and Housing Market Dynamics in Hong Kong (SSRN 6500524) | Wong | 2026 | https://doi.org/10.2139/ssrn.6500524 | abstract (Crossref) | no: housing model
+  - Uncovered interest rate parity, carry trade, and country equity return differentials (Global Economy Journal) | Kanchanapoom, Padungsaksawasdi et al. | 2018 | Scholar listing | not opened | no (snippet only): Hong Kong dollar excluded
+  - Exchange Rate Expectations, Cross-Border Equity Flows, and the Onshore-Offshore Exchange Rate Spreads | Ma, Zhu | not confirmed | SSRN listing | not opened | no (snippet only): RMB onshore/offshore spread, not USD/HKD
+- CNKI (oversea.cnki.net), 5 terms (港元 匯率 股市: 134 hits; 港元 利差 套息交易: 2; 南向資金 港元 匯率: 8; 聯繫匯率 資金流 港股: 0, also 0 in Simplified, broadened to 聯繫匯率 港股: 88; 港元 HIBOR 南向: 3). Almost all newspaper pieces. No academic paper close. Closest:
+  - Hong Kong dollar market analysis framework and recent trend interpretation (China Forex 2025(13), pp. 54-58) | Liu Hongshao, Liu Xiaokai (Agricultural Bank of China) | 2025 | DOI 10.13539/j.cnki.11-5475/f.2025.13.016 | abstract | no: practitioner piece, names carry trades and stock-driven flows in words, no estimates
+- Airiti: www.airitilibrary.com drops the TLS connection from this network (same network where the HKMA API is blocked). Web search found no indexed Airiti page for the terms. Not searched.
+- Motivation quote worth citing: Norman Chan (HKMA), "Latest Analysis of Fund Inflows into the Hong Kong Dollar", HKMA Insight, 1 Feb 2010, https://www.hkma.gov.hk/eng/news-and-media/insight/2010/02/20100201/ : in 2006 and 2007 a wide HKD-USD spread led to carry trades that "countered the demand for Hong Kong dollars triggered by equity-related fund inflows". Narrative only, not a test.
 
 Framework to cite (abstracts only): Hau and Rey (2006, RFS); Camanho, Hau and Rey (2022, RFS); Cenedese, Payne, Sarno and Valente (2016, Review of Finance); Curcuru, Thomas, Warnock and Wongswan (2014, JIMF).
 
