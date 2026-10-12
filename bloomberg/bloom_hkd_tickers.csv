@@ -1,0 +1,14 @@
+priority,series,ticker,field,start,end,purpose,ticker_status,free_series_it_replaces
+A,1M USD LIBOR,US0001M Index,PX_LAST,20150101,20230630,Column 5 USD rate to mid-2023 (panel LIBOR ended 30 Jun 2023),web-confirmed (loan contract definitions),ust_1m (FRED DGS1MO)
+A,1M CME Term SOFR,TSFR1M Index,PX_LAST,20230701,20260930,Column 5 USD rate from Jul 2023; add the ISDA 1M spread 11.448 bp so it joins LIBOR without a level drop,web-confirmed (contract definitions),ust_1m (FRED DGS1MO)
+B,1M HIBOR fixing,HIHD01M Index,PX_LAST,20150101,20260930,Cross-check of the HKMA HIBOR series,not confirmed online; check DES on terminal,hibor_1m (HKMA T060303)
+B,HONIA,HONIA Index,PX_LAST,20160405,20260930,Cross-check of the HKMA HONIA series,not confirmed online; Grok says Bloomberg stopped HONIA on 2024-06-01 (unverified); check DES on terminal,honia (HKMA T060303)
+B,SOFR,SOFRRATE Index,PX_LAST,20180403,20260930,Cross-check of FRED SOFR,web-confirmed (Bloomberg index page),sofr (FRED SOFR)
+B,1M US Treasury yield,USGG1M Index,PX_LAST,20150101,20260930,Cross-check of FRED DGS1MO,not confirmed online; check DES on terminal,ust_1m (FRED DGS1MO)
+B,USD/HKD spot,USDHKD Curncy,PX_LAST,20150101,20260930,Cross-check of the HKMA USD/HKD close (Bloomberg close is a different time),standard FX format; check DES on terminal,usdhkd (HKMA T060103)
+B,Hang Seng Index price,HSI Index,PX_LAST,20150101,20260930,Cross-check of Yahoo ^HSI,standard; check DES on terminal,hsi_close (Yahoo ^HSI)
+B,Hang Seng Index gross total return,HSIRH Index,PX_LAST,20150101,20260930,HSI with dividends (Yahoo has price only),Grok-suggested vendor code (net TR is HSINH Index); check DES on terminal,hsi_close (Yahoo ^HSI)
+C,HKD 1M forward points,HKD1M Curncy,PX_LAST,20150101,20260930,Alternative outcome idea from Notes for later; not in the plan,not confirmed online; check DES on terminal,none
+C,HKD 12M forward points,HKD12M Curncy,PX_LAST,20150101,20260930,Alternative outcome idea; not in the plan,not confirmed online; may be HKD1Y Curncy; check DES on terminal,none
+C,MSCI Hong Kong,MXHK Index,PX_LAST,20150101,20260930,Alternative equity index check; not in the plan,not confirmed online; check DES on terminal,hsi_close (Yahoo ^HSI)
+C,HKMA Aggregate Balance,unknown (search SECF for aggregate balance),PX_LAST,20150101,20260930,Not needed (HKMA file is official),ticker unknown,agg_balance_hkd_mn (HKMA T070102)
