@@ -1,6 +1,6 @@
 # hkd-equity-gap
 
-Side project (Steven's own, not under any professor).
+An exploratory note on the HSI and USD/HKD under the Linked Exchange Rate System.
 
 ## Question
 
@@ -95,7 +95,7 @@ Manual search, 2026-10-09 (browser, no login):
 
 Framework to cite (abstracts only): Hau and Rey (2006, RFS); Camanho, Hau and Rey (2022, RFS); Cenedese, Payne, Sarno and Valente (2016, Review of Finance); Curcuru, Thomas, Warnock and Wongswan (2014, JIMF).
 
-Notes for Steven (not actions):
+Caveats:
 
 - The gap may be driven by equity flows (endogeneity): AMRO's mechanism runs from equity flows through the Aggregate Balance to HIBOR, and HKMA RM 07/2017 has equity returns setting the spread (search excerpt only).
 - USD/HKD barely moves under the peg, so the dependent variable has tiny variance. A referee may ask for distance to the convertibility undertaking or forward points instead.
